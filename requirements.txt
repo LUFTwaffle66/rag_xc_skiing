@@ -4,4 +4,3 @@ faiss-cpu
 sentence-transformers
 numpy
 google-generativeai
-google-cloud-aiplatform
