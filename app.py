@@ -7,18 +7,16 @@ import faiss
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai
 
-# Flask app setup
 app = Flask(__name__)
 CORS(app)
 
-# Lazy-loaded resources
 model = None
 index = None
 chunks = None
 chat_histories = {}
 
-# Gemini setup
-genai.configure(api_key=os.getenv("AIzaSyAzES2A8vachLUKKoDdTnqdYS4rxfCO16M"))
+# Configure Gemini API
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
 @app.route("/ask", methods=["POST"])
@@ -36,22 +34,19 @@ def ask():
         with open("chunks.json", "r") as f:
             chunks = json.load(f)
 
-    # Search relevant chunks
     query_embedding = model.encode([question])
     D, I = index.search(np.array(query_embedding), k=5)
     relevant_chunks = [chunks[i] for i in I[0]]
     context = "\n".join(relevant_chunks)
 
-    # Manage conversation history
     if profile not in chat_histories:
         chat_histories[profile] = []
     chat_histories[profile].append(f"Uživatel: {question}")
     chat_histories[profile] = chat_histories[profile][-3:]
     history_prompt = "\n".join(chat_histories[profile])
 
-    # Construct prompt
-    system_prompt = f"""Jsi El_Kapitán_100b, profesionální trenér běžeckého lyžování. 
-Nepoužívej speciální formátování. Nekopíruj tréninky, upravuj je podle situace. 
+    system_prompt = f"""Jsi El_Kapitán_100b, profesionální trenér běžeckého lyžování.
+Nepoužívej speciální formátování. Nekopíruj tréninky, upravuj je podle situace.
 Odpovídáš na základě následujícího kontextu:
 
 {context}
@@ -66,5 +61,7 @@ Poslední zprávy z konverzace:
     except Exception as e:
         return jsonify({"answer": f"Chyba: {str(e)}"})
 
+# 🟢 Correct port binding for Render
 if __name__ == "__main__":
-    app.run(debug=False, host="0.0.0.0")
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
