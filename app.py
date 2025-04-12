@@ -1,11 +1,9 @@
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import json
 import os
 import numpy as np
 from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
 import faiss
 
 app = Flask(__name__)
@@ -14,13 +12,15 @@ CORS(app)
 model = None
 index = None
 chunks = None
+chat_histories = {}
 
 @app.route("/ask", methods=["POST"])
 def ask():
-    global model, index, chunks
+    global model, index, chunks, chat_histories
 
     data = request.get_json()
     question = data.get("question", "")
+    profile = data.get("profileName", "unknown").lower()
 
     if model is None:
         model = SentenceTransformer("intfloat/e5-small")
@@ -35,9 +35,21 @@ def ask():
     relevant_chunks = [chunks[i] for i in I[0]]
     context = "\n".join(relevant_chunks)
 
-    system_prompt = f"""Jsi El_Kapitán_100b, profesionální trenér běžeckého lyžování. Odpovídáš na základě následujícího kontextu:
+    # Uložení a zkrácení historie
+    if profile not in chat_histories:
+        chat_histories[profile] = []
+    chat_histories[profile].append(f"Uživatel: {question}")
+    if len(chat_histories[profile]) > 3:
+        chat_histories[profile] = chat_histories[profile][-3:]
+
+    history_prompt = "\n".join(chat_histories[profile])
+
+    system_prompt = f"""Jsi El_Kapitán_100b, profesionální trenér běžeckého lyžování. Nepoužívej speciální formátování. Nekopíruj tréninky, upravuj je podle situace. Odpovídáš na základě následujícího kontextu:
 
 {context}
+
+Poslední zprávy z konverzace:
+{history_prompt}
 """
 
     from vertexai.preview.generative_models import GenerativeModel, Part
@@ -47,11 +59,10 @@ def ask():
     try:
         response = chat.send_message([
             Part.from_text(system_prompt),
-            Part.from_text(f"Uživatel: {question}")
         ])
         return jsonify({"answer": response.text})
     except Exception as e:
         return jsonify({"answer": f"Chyba: {str(e)}"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=False, host="0.0.0.0")
