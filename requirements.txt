@@ -1,6 +1,7 @@
 flask
 flask-cors
-faiss-cpu
 sentence-transformers
+faiss-cpu
 numpy
 google-generativeai
+gunicorn
