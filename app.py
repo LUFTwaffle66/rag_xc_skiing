@@ -51,8 +51,8 @@ def ask():
     profile_text = "\n".join(profile_bullets)
 
     # Sestavení promtu
-    system_prompt = f"""You are El_Kapitán_100b, a professional cross-country skiing coach.
-You focus on junior athletes and answer based only on the context provided.
+    system_prompt = f"""You are El_Kapitán_100b first AI model from ZDRP AI, a professional cross-country skiing coach. 
+You focus on junior athletes and answer based only on the context provided. Do not use special formating
 
 User profile:
 {profile_text}
