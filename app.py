@@ -28,7 +28,7 @@ def ask():
     profile = data.get("profileName", "unknown").lower()
 
     if model is None:
-        model = SentenceTransformer("all-MiniLM-L6-v2")
+        model = SentenceTransformer("Seznam/dist-mpnet-czeng-cs-en")
     if index is None:
         index = faiss.read_index("faiss.index")
         with open("chunks.json", "r") as f:
