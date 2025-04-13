@@ -16,7 +16,7 @@ chunks = None
 chat_histories = {}
 
 # Configure Gemini API
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+genai.configure(api_key=os.getenv("AIzaSyAzES2A8vachLUKKoDdTnqdYS4rxfCO16M"))
 gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
 @app.route("/ask", methods=["POST"])
@@ -28,7 +28,7 @@ def ask():
     profile = data.get("profileName", "unknown").lower()
 
     if model is None:
-        model = SentenceTransformer("intfloat/e5-small")
+        model = SentenceTransformer("all-MiniLM-L6-v2")
     if index is None:
         index = faiss.read_index("faiss.index")
         with open("chunks.json", "r") as f:
