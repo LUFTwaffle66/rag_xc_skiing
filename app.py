@@ -16,7 +16,7 @@ chunks = None
 chat_histories = {}
 
 # Configure Gemini API
-genai.configure(api_key=os.getenv("AIzaSyAzES2A8vachLUKKoDdTnqdYS4rxfCO16M"))
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
 @app.route("/ask", methods=["POST"])
