@@ -4,37 +4,48 @@ import os
 import json
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
+import torch
+from transformers import AutoTokenizer, AutoModel
 import google.generativeai as genai
 
 app = Flask(__name__)
 CORS(app)
 
+tokenizer = None
 model = None
 index = None
 chunks = None
 chat_histories = {}
 
-# Configure Gemini API
+# Gemini API klíč
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
+# Funkce pro embedding přes retromae
+def get_embedding(text):
+    global tokenizer, model
+    if tokenizer is None or model is None:
+        tokenizer = AutoTokenizer.from_pretrained("Seznam/retromae-small-cs")
+        model = AutoModel.from_pretrained("Seznam/retromae-small-cs")
+    inputs = tokenizer(text, return_tensors="pt", truncation=True, padding=True)
+    with torch.no_grad():
+        outputs = model(**inputs)
+    return outputs.last_hidden_state[:, 0].numpy()
+
 @app.route("/ask", methods=["POST"])
 def ask():
-    global model, index, chunks, chat_histories
+    global index, chunks, chat_histories
 
     data = request.get_json()
     question = data.get("question", "")
     profile = data.get("profileName", "unknown").lower()
 
-    if model is None:
-        model = SentenceTransformer("Seznam/dist-mpnet-czeng-cs-en")
     if index is None:
         index = faiss.read_index("faiss.index")
         with open("chunks.json", "r") as f:
             chunks = json.load(f)
 
-    query_embedding = model.encode([question])
+    query_embedding = get_embedding(question)
     D, I = index.search(np.array(query_embedding), k=5)
     relevant_chunks = [chunks[i] for i in I[0]]
     context = "\n".join(relevant_chunks)
@@ -72,7 +83,7 @@ Poslední zprávy z konverzace:
     except Exception as e:
         return jsonify({"answer": f"Chyba: {str(e)}"})
 
-# 🟢 Correct port binding for Render
+# 🔁 Správný binding pro Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
