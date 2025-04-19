@@ -9,7 +9,7 @@ from transformers import AutoTokenizer, AutoModel
 import google.generativeai as genai
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://cosmic-crostata-1c51df.netlify.app"])  # ✅ povolení jen pro tvůj frontend
 
 tokenizer = None
 model = None
