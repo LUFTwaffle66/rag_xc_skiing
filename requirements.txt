@@ -2,7 +2,7 @@ flask
 flask-cors
 faiss-cpu
 numpy
-google-generativeai
-gunicorn
 torch
 transformers
+google-generativeai
+gunicorn
