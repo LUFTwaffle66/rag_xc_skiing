@@ -8,12 +8,9 @@ import torch
 from transformers import AutoTokenizer, AutoModel
 import google.generativeai as genai
 
-# ─── Flask app setup ──────────────────────────────────────
 app = Flask(__name__)
-# Ensure CORS headers are recognized
-app.config['CORS_HEADERS'] = 'Content-Type'
 
-# Enable CORS only for the /ask endpoint and your Netlify frontend
+# CORS config for your Netlify site
 CORS(
     app,
     resources={r"/ask": {"origins": ["https://cosmic-crostata-1c51df.netlify.app"]}},
@@ -21,18 +18,17 @@ CORS(
     allow_headers=["Content-Type"]
 )
 
-# ─── Globals for RAG & chat histories ───────────────────
 tokenizer = None
 model = None
 index = None
 chunks = None
 chat_histories = {}
 
-# Gemini API key configuration
+# Gemini config
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
-# Embedding function using Seznam/retromae-small-cs
+# Embedding function using retromae
 def get_embedding(text):
     global tokenizer, model
     if tokenizer is None or model is None:
@@ -43,7 +39,6 @@ def get_embedding(text):
         outputs = model(**inputs)
     return outputs.last_hidden_state[:, 0].numpy()
 
-# ─── Chat endpoint ───────────────────────────────────────
 @app.route("/ask", methods=["POST"])
 def ask():
     global index, chunks, chat_histories
@@ -52,26 +47,22 @@ def ask():
     question = data.get("question", "")
     profile = data.get("profileName", "unknown").lower()
 
-    # Lazy-load index & chunks
     if index is None:
         index = faiss.read_index("faiss.index")
         with open("chunks.json", "r") as f:
             chunks = json.load(f)
 
-    # Retrieve top-5 relevant chunks
     query_embedding = get_embedding(question)
     D, I = index.search(np.array(query_embedding), k=5)
     relevant_chunks = [chunks[i] for i in I[0]]
     context = "\n".join(relevant_chunks)
 
-    # Maintain a short chat history per profile
     if profile not in chat_histories:
         chat_histories[profile] = []
     chat_histories[profile].append(f"Uživatel: {question}")
     chat_histories[profile] = chat_histories[profile][-3:]
     history_prompt = "\n".join(chat_histories[profile])
 
-    # System prompt for Gemini
     system_prompt = f"""Jsi El_Kapitán – profesionální trenér běžeckého lyžování. Trénuješ ambiciózní osmnáctileté juniory z Prahy, kteří to myslí vážně. Pokud nejde o soustředění, plánuj maximálně jeden trénink denně.
 
 V létě skládej tréninky z těchto sportů: imitace, běh, kolo, kolce (minimálně 50 minut) a silový trénink. Kombinuj je tak, aby se stavěl objem, rozvíjela síla a zároveň zůstala prostor pro regeneraci.
@@ -99,17 +90,15 @@ Poslední zprávy z konverzace:
     except Exception as e:
         return jsonify({"answer": f"Chyba: {str(e)}"})
 
-# ─── Add CORS headers to every response ───────────────────
+# Add CORS headers to every response (backup, just in case)
 @app.after_request
-```
-    def add_cors_headers(response):
-        response.headers['Access-Control-Allow-Origin'] = 'https://cosmic-crostata-1c51df.netlify.app'
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response
-```
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = 'https://cosmic-crostata-1c51df.netlify.app'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+    return response
 
-# 🔁 Správný binding pro Render
+# Run app on Render
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
