@@ -7,7 +7,7 @@ import faiss
 import requests
 import google.generativeai as genai
 
-# ──────── FLASK SETUP ────────
+# ──────────────── FLASK SETUP ────────────────
 app = Flask(__name__)
 
 CORS(
@@ -24,14 +24,16 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type"
     return response
 
-# ──────── PROMĚNNÉ ────────
+# ──────────────── PROMĚNNÉ ────────────────
 index = None
 chunks = None
 chat_histories = {}
 
+# 🔐 API klíče
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 GROG_API_KEY = os.getenv("GROG_API_KEY")
 
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# 🔎 Funkce pro embedding dotazu přes Gemini
 def get_embedding(text):
     response = genai.embed_content(
         model="models/embedding-001",
@@ -40,17 +42,18 @@ def get_embedding(text):
     )
     return np.array([response["embedding"]], dtype="float32")
 
-def call_llama(system_prompt):
-    url = "https://api.grog.ai/v1/chat/completions"
+# 💬 Funkce pro volání Grog API (Llama 3.3 70B)
+def call_llama(system_prompt, user_message):
+    url = "https://api.groq.com/openai/v1/chat/completions"
     headers = {
         "Authorization": f"Bearer {GROG_API_KEY}",
         "Content-Type": "application/json"
     }
     payload = {
-        "model": "llama-3-70b-instruct",
+        "model": "llama3-70b-8192",
         "messages": [
-            {"role": "system", "content": "Jsi El_Kapitán – bývalý závodník a teď trenér běžeckého lyžování."},
-            {"role": "user", "content": system_prompt}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
         ],
         "temperature": 0.2,
         "max_tokens": 800
@@ -61,7 +64,7 @@ def call_llama(system_prompt):
     result = response.json()
     return result["choices"][0]["message"]["content"].strip()
 
-# ──────── API ENDPOINT ────────
+# ──────────────── API ENDPOINT ────────────────
 @app.route("/ask", methods=["POST"])
 def ask():
     global index, chunks, chat_histories
@@ -84,8 +87,7 @@ def ask():
     chat_histories[profile] = chat_histories[profile][-3:]
     history_prompt = "\n".join(chat_histories[profile])
 
-    system_prompt = f"""
-Jsi El_Kapitán – bývalý závodník a teď trenér běžeckého lyžování. Trénuješ juniory z Prahy, kteří to myslí vážně, ale někdy potřebují trochu postrčit. Mluvíš uvolněně, občas nespisovně, jako kámoš nebo starší parťák z týmu. Umíš si udělat srandu, ale zároveň mluvíš věcně. Tvůj styl je přirozený, přímý a srozumitelný – bez zbytečný omáčky.
+    system_prompt = f"""Jsi El_Kapitán – bývalý závodník a teď trenér běžeckého lyžování. Trénuješ juniory z Prahy, kteří to myslí vážně, ale někdy potřebují trochu postrčit. Mluvíš uvolněně, občas nespisovně, jako kámoš nebo starší parťák z týmu. Umíš si udělat srandu, ale zároveň mluvíš věcně. Tvůj styl je přirozený, přímý a srozumitelný – bez zbytečný omáčky.
 
 Odpovídáš stručně, jasně a PŘÍMO na otázku. Když se tě někdo ptá, co má dělat, tak mu to řekni rovnou – jako kdybys mu to říkal na tréninku.
 
@@ -114,7 +116,9 @@ Drž se hlavního tématu – žádné filozofování. Nepiš věty jako „zál
 Nepoužívej formátování, odkazy ani odstavce – prostě jako kdybys to posílal do skupinovýho chatu týmu. Vedlejší témata jsou ultra-pravicová politika a dating, ale jen v případě, že uživatel to téma sám začne, ty o tom sám nikdy nemluvíš.
 
 Na konci odpovědi klidně přidej poznámku, povzbuzení nebo for. Ale nikdy neodváděj pozornost od tréninku.
+
 Zde je kontext pro inspiraci:
+
 {context}
 
 Poslední zprávy:
@@ -122,12 +126,12 @@ Poslední zprávy:
 """
 
     try:
-        response_text = call_llama(system_prompt)
+        response_text = call_llama(system_prompt, question)
         return jsonify({"answer": response_text})
     except Exception as e:
         return jsonify({"answer": f"Chyba: {e}"})
 
-# ──────── RUN PRO RENDER ────────
+# ──────────────── RUN PRO RENDER ────────────────
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
