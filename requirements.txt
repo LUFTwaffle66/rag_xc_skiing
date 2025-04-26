@@ -4,5 +4,5 @@ faiss-cpu
 numpy
 torch
 transformers
-google-generativeai
+requests
 gunicorn
